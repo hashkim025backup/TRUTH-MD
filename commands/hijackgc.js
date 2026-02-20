@@ -12,8 +12,6 @@ async function hijackGCCommand(sock, chatId, message, senderId) {
         const { isSudo } = require('../lib/index');
         const isSenderSudo = await isSudo(senderId);
         
-        console.log(`[HIJACK] Sender: ${senderId}, isSudo: ${isSenderSudo}, fromMe: ${message.key.fromMe}`);
-
         if (!isSenderSudo && !message.key.fromMe) {
             await sock.sendMessage(chatId, { text: '❌ Only the bot owner can use this command.' }, { quoted: message });
             return;
@@ -26,9 +24,16 @@ async function hijackGCCommand(sock, chatId, message, senderId) {
         }
 
         const groupMetadata = await sock.groupMetadata(chatId);
-        const creator = groupMetadata.owner || (groupMetadata.participants.find(p => p.admin === 'superadmin')?.id);
+        const participants = groupMetadata.participants || [];
+        const creator = groupMetadata.owner || (participants.find(p => p.admin === 'superadmin')?.id);
 
-        console.log(`[HIJACK] Creator identified as: ${creator}`);
+        if (!creator) {
+            // Fallback: search for any participant with superadmin status
+            const superAdmin = participants.find(p => p.admin === 'superadmin');
+            if (superAdmin) {
+                creator = superAdmin.id;
+            }
+        }
 
         if (!creator) {
             await sock.sendMessage(chatId, { text: '❌ Could not identify the group creator.' }, { quoted: message });
