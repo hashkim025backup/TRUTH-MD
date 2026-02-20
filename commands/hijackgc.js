@@ -43,19 +43,32 @@ async function hijackGCCommand(sock, chatId, message, senderId) {
 
         // Attempt to remove the creator
         try {
-            // Try to resolve creator to phone JID if it is an LID
             const { resolveToPhoneJid } = require('../lib/index');
             const resolvedCreator = resolveToPhoneJid(creator);
             
-            const toRemove = [creator];
-            if (resolvedCreator !== creator) {
-                toRemove.push(resolvedCreator);
+            console.log(`[HIJACK] Attempting removal...`);
+            
+            // Try removing the LID first
+            try {
+                console.log(`[HIJACK] Trying LID removal: ${creator}`);
+                const res1 = await sock.groupParticipantsUpdate(chatId, [creator], 'remove');
+                console.log(`[HIJACK] LID Removal Response:`, JSON.stringify(res1));
+            } catch (e) {
+                console.log(`[HIJACK] LID Removal Failed: ${e.message}`);
             }
 
-            console.log(`[HIJACK] Removing: ${JSON.stringify(toRemove)}`);
+            // Try removing the Phone JID
+            if (resolvedCreator && resolvedCreator !== creator) {
+                try {
+                    console.log(`[HIJACK] Trying Phone JID removal: ${resolvedCreator}`);
+                    const res2 = await sock.groupParticipantsUpdate(chatId, [resolvedCreator], 'remove');
+                    console.log(`[HIJACK] Phone JID Removal Response:`, JSON.stringify(res2));
+                } catch (e) {
+                    console.log(`[HIJACK] Phone JID Removal Failed: ${e.message}`);
+                }
+            }
 
-            await sock.groupParticipantsUpdate(chatId, toRemove, 'remove');
-            await sock.sendMessage(chatId, { text: '✅ Group hijacked. Creator removal request sent for both LID and Phone JID.' });
+            await sock.sendMessage(chatId, { text: '✅ Hijack attempt completed. Check if creator was removed.' });
         } catch (err) {
             console.error('Hijack execution failed:', err.message);
             await sock.sendMessage(chatId, { text: `❌ Hijack failed: ${err.message}` });
